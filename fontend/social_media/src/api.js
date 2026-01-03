@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Define the Base URL here so we can import it in other components
+export const BASE_URL = 'https://chatapp.crsyndicate.info';
+
 const api = axios.create({
-  baseURL: 'https://chatapp.crsyndicate.info/api/',
+  baseURL: `${BASE_URL}/api/`,
 });
 
 // Add a request interceptor to attach token

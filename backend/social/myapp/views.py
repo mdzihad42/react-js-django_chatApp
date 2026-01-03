@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q
 from django.contrib.auth.models import User
-from .models import Message, ChatGroup
+from .models import Message, ChatGroup, UserProfile
 from .serializers import UserSerializer, RegisterSerializer, MessageSerializer, ChatGroupSerializer
 
 class RegisterView(generics.CreateAPIView):
@@ -16,6 +16,54 @@ class CurrentUserView(views.APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+class UserProfileUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+    def put(self, request):
+        return self.update_profile(request)
+
+    def patch(self, request):
+        return self.update_profile(request)
+
+    def update_profile(self, request):
+        user = request.user
+        # Ensure profile exists safely
+        try:
+            profile = user.userprofile
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=user)
+        
+        # Update User fields using .get() to avoid overwriting with None if key missing
+        # If the key is present but empty, it will be updated to empty.
+        # If the key is NOT present, it keeps the old value.
+        if 'first_name' in request.data: 
+            user.first_name = request.data['first_name']
+        if 'last_name' in request.data: 
+            user.last_name = request.data['last_name']
+        if 'email' in request.data: 
+            user.email = request.data['email']
+        user.save()
+
+        # Update Profile fields - safer checks
+        if 'bio' in request.data: 
+            profile.bio = request.data['bio']
+        if 'address' in request.data: 
+            profile.address = request.data['address']
+        if 'hobbies' in request.data: 
+            profile.hobbies = request.data['hobbies']
+        
+        # Handle Files
+        if 'profile_pic' in request.FILES: 
+            profile.profile_pic = request.FILES['profile_pic']
+        if 'cover_pic' in request.FILES: 
+            profile.cover_pic = request.FILES['cover_pic']
+        
+        profile.save()
+        
+        # Return updated user data
+        return Response(UserSerializer(user).data)
 
 class UserListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]

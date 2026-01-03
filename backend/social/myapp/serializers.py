@@ -7,11 +7,16 @@ from datetime import timedelta
 
 class UserSerializer(serializers.ModelSerializer):
     last_active = serializers.DateTimeField(source='userprofile.last_active', read_only=True)
+    bio = serializers.CharField(source='userprofile.bio', read_only=True)
+    address = serializers.CharField(source='userprofile.address', read_only=True)
+    hobbies = serializers.CharField(source='userprofile.hobbies', read_only=True)
+    profile_pic = serializers.ImageField(source='userprofile.profile_pic', read_only=True)
+    cover_pic = serializers.ImageField(source='userprofile.cover_pic', read_only=True)
     is_online = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'last_active', 'is_online']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'last_active', 'is_online', 'bio', 'address', 'hobbies', 'profile_pic', 'cover_pic']
     
     def get_is_online(self, obj):
         try:
