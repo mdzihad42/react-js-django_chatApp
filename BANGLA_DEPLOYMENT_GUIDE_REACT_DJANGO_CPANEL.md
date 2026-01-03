@@ -1,0 +1,148 @@
+# গাইড: cPanel-এ React এবং Django প্রজেক্ট হোস্ট করার নিয়ম
+**লেখক:** Antigravity  
+**তারিখ:** ৩ জানুয়ারী, ২০২৬
+
+এই গাইডটি আপনাকে শেখাবে কিভাবে cPanel-এ একটি **React (Frontend)** এবং **Django (Backend)** অ্যাপ খুব সহজে এবং প্রফেশনালি হোস্ট করতে হয়। আমরা দুটি আলাদা সাব-ডোমেইন ব্যবহার করব, যা বড় প্রজেক্টের জন্য সবচেয়ে ভালো পদ্ধতি।
+
+## 🏗️ আর্কিটেকচার (কিভাবে সাজাবো)
+আমরা পুরো সিস্টেমটিকে দুই ভাগে ভাগ করব:
+1.  **Backend (API):** এটি থাকবে বা `chatapp.yourdomain.com`-এ (Django)।
+2.  **Frontend (UI):** এটি থাকবে `chat.yourdomain.com`-এ (React)।
+
+---
+
+## ✅ পার্ট ১: Django Backend ডেপ্লয়মেন্ট
+
+### ১. `settings.py` ফাইল প্রস্তুত করা
+আপলোড করার আগে আপনার Django সেটিংস ফাইলে কিছু জরুরি পরিবর্তন করতে হবে।
+
+**`ALLOWED_HOSTS` আপডেট করুন:**
+```python
+ALLOWED_HOSTS = ["*", "chatapp.yourdomain.com", "www.chatapp.yourdomain.com"]
+```
+
+**CORS কনফিগারেশন (React কানেকশনের জন্য খুব গুরুত্বপূর্ণ):**
+প্রথমে `corsheaders` ইন্সটল করা আছে কি না নিশ্চিত হোন।
+```python
+INSTALLED_APPS = [
+    # ... অন্যান্য অ্যাপস
+    'corsheaders',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', # এটি অবশ্যই সবার উপরে রাখবেন
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # স্ট্যাটিক ফাইলের জন্য
+    # ...
+]
+
+# আপনার React ডোমেইনের লিঙ্ক এখানে দিন
+CORS_ALLOWED_ORIGINS = [
+    "https://chat.yourdomain.com",
+    "https://www.chat.yourdomain.com",
+    "http://localhost:5173", # লোকাল টেস্টের জন্য
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://chat.yourdomain.com",
+    "https://chatapp.yourdomain.com",
+]
+```
+
+### ২. cPanel-এ Django সেটআপ
+1.  **cPanel**-এ লগইন করুন।
+2.  **Subdomains** অপশনে যান এবং ব্যাকএন্ডের জন্য একটি সাব-ডোমেইন খুলুন (যেমন: `chatapp.yourdomain.com`)।
+3.  **"Setup Python App"** অপশনে যান।
+4.  **Create Application**-এ ক্লিক করুন:
+    *   **Python Version:** ৩.৯ বা তার উপরের ভার্সন বেছে নিন।
+    *   **Application Root:** একটা ফোল্ডারের নাম দিন যেখানে কোড আপলোড করবেন (যেমন: `backend_app`)।
+    *   **Application URL:** আপনার সাব-ডোমেইন সিলেক্ট করুন (`chatapp.yourdomain.com`)।
+    *   **Create** বাটনে ক্লিক করুন।
+
+### ৩. কোড আপলোড করা
+1.  **File Manager**-এ যান।
+2.  আপনার তৈরি করা `backend_app` ফোল্ডারে ঢুকুন।
+3.  আপনার Django প্রজেক্টের সব ফাইল আপলোড করুন (যে ফোল্ডারে `manage.py` আছে)।
+    *   *টিপস: কম্পিউটার থেকে জিপ (ZIP) করে আপলোড করুন, তারপর cPanel-এ এক্সট্রাক্ট করুন।*
+4.  **সতর্কতা:** লোকাল কম্পিউটারের `venv` বা `env` ফোল্ডার আপলোড করবেন না।
+
+### ৪. `passenger_wsgi.py` ফাইল সেটআপ
+cPanel-এর সেই ফোল্ডারে `passenger_wsgi.py` ফাইলটি এডিট করুন (না থাকলে তৈরি করুন) এবং নিচের কোডটি দিন:
+```python
+import os
+import sys
+
+# 'social' এর জায়গায় আপনার প্রজেক্ট ফোল্ডারের নাম দিবেন (যেটার ভিতরে settings.py আছে)
+from social.wsgi import application
+```
+
+### ৫. ডিপেন্ডেন্সি ইন্সটল করা
+1.  আবার **Setup Python App** পেজে যান।
+2.  নিচে "Configuration files" বক্সে `requirements.txt` লিখে **Add** করুন।
+3.  **Run Pip Install** বাটনে ক্লিক করুন। কয়েক সেকেন্ড সময় নিবে।
+
+### ৬. শেষ কিছু কাজ
+*   **Database Setup:** টার্মিনাল ওপেন করে `python manage.py migrate` কমান্ড দিন।
+*   **Static Files:** কমান্ড দিন `python manage.py collectstatic`।
+*   **Superuser:** এডমিন প্যানেলে ঢোকার জন্য `python manage.py createsuperuser` দিয়ে আইডি/পাসওয়ার্ড বানান।
+*   **Restart:** সব শেষে অ্যাপটি **Restart** দিন।
+
+---
+
+## 🎨 পার্ট ২: React Frontend ডেপ্লয়মেন্ট
+
+### ১. API লিঙ্ক ঠিক করা
+আপনার React কোডে (যেমন `api.js` ফাইলে) ব্যাকএন্ডের লিঙ্কটি বসিয়ে দিন।
+
+```javascript
+// src/api.js
+import axios from 'axios';
+
+const api = axios.create({
+  // আপনার Django অ্যাপের লিঙ্ক
+  baseURL: 'https://chatapp.yourdomain.com/api/', 
+});
+
+export default api;
+```
+
+### ২. প্রজেক্ট বিল্ড করা
+VS Code-এর টার্মিনালে নিচের কমান্ডটি দিন:
+```bash
+npm run build
+```
+এটি `dist` নামে একটি ফোল্ডার তৈরি করবে।
+
+### ৩. ফাইল আপলোড
+1.  cPanel-এ React-এর সাব-ডোমেইনের ফোল্ডারে যান (যেমন: `chat.yourdomain.com` এর ফোল্ডার)।
+2.  আপনার কম্পিউটারের `dist` ফোল্ডারের **ভিতরের সব ফাইল** কপি করে সেখানে আপলোড করুন।
+
+### ৪. রাউটিং ঠিক করা (খুবই গুরুত্বপূর্ণ)
+React অ্যাপে পেজ রিফ্রেশ করলে যেন "404 Error" না আসে, তার জন্য একটি `.htaccess` ফাইল তৈরি করুন এবং নিচের কোডটি দিন:
+
+```apacheconf
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>
+```
+
+---
+
+## 🚀 সমস্যা ও সমাধান (Troubleshooting)
+
+| সমস্যা | সমাধান |
+| :--- | :--- |
+| **Backend 500 Error** | cPanel-এর এরর লগ চেক করুন। প্রায়ই `passenger_wsgi.py` ফাইলে পথের ভুল থাকে। |
+| **CORS Error (Browser Console)** | `settings.py` ফাইলে `CORS_ALLOWED_ORIGINS`-এ আপনার React সাইটের লিঙ্ক ঠিক আছে কিনা দেখুন (http বনাম https)। |
+| **Static Files দেখা যাচ্ছে না** | `python manage.py collectstatic` কমান্ডটি রান করেছেন কি না চেক করুন। |
+| **Database কাজ করছে না** | নতুন সার্ভারে নতুন ডাটাবেস তৈরি হয়। হয় নতুন করে `createsuperuser` করুন, অথবা আপনার পিসি থেকে `db.sqlite3` ফাইলটি আপলোড করে দিন। |
+| **React রিফ্রেশ দিলে 404** | আপনি `.htaccess` ফাইলটি দিতে ভুলে গেছেন। |
+
+---
+**আপনার অ্যাপ এখন সফলভাবে লাইভ!** 🚀
